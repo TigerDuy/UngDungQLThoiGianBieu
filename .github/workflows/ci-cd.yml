@@ -20,7 +20,7 @@ jobs:
       - name: Build Frontend (React + Vite)
         run: |
           cd src/frontend
-          npm ci
+          npm install --legacy-peer-deps
           npm run build
 
   build-backend:
@@ -39,5 +39,5 @@ jobs:
       - name: Cài đặt backend và kiểm thử
         run: |
           cd src/backend
-          npm ci
+          npm install
           npm test || echo "Không có test backend"
