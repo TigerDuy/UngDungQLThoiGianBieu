@@ -12,6 +12,7 @@ interface RegisterFormProps {
   onSubmit: (data: RegisterFormData) => Promise<void>
   onSwitchToLogin: () => void
   loading?: boolean
+  error?: string | null
   className?: string
 }
 
@@ -19,6 +20,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   onSubmit,
   onSwitchToLogin,
   loading = false,
+  error = null,
   className
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -298,6 +300,26 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             </button>{' '}
             của chúng tôi.
           </div>
+
+          {/* Error message */}
+          {error && (
+            <div style={{
+              padding: '0.75rem',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              marginBottom: '1rem'
+            }}>
+              <p style={{
+                color: '#dc2626',
+                fontSize: '0.875rem',
+                margin: 0,
+                textAlign: 'center'
+              }}>
+                {error}
+              </p>
+            </div>
+          )}
 
           {/* Submit button */}
           <button
