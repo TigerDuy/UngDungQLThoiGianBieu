@@ -57,7 +57,7 @@ export const useAuthStore = create<AuthStore>()(
               id: user.id,
               email: user.email,
               name: user.name,
-              createdAt: user.createdAt
+              created_at: user.created_at
             },
             isAuthenticated: true,
             isLoading: false,
@@ -104,7 +104,7 @@ export const useAuthStore = create<AuthStore>()(
             email: email.trim(),
             name: name.trim(),
             password: password,
-            createdAt: new Date().toISOString()
+            created_at: new Date().toISOString()
           }
 
           // Save to localStorage
@@ -117,7 +117,7 @@ export const useAuthStore = create<AuthStore>()(
               id: newUser.id,
               email: newUser.email,
               name: newUser.name,
-              createdAt: newUser.createdAt
+              created_at: newUser.created_at
             },
             isAuthenticated: true,
             isLoading: false,
@@ -163,7 +163,7 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       // Initialize user from localStorage
-      initializeAuth: () => {
+      initializeAuth: async () => {
         try {
           const currentUser = localStorage.getItem('schedule-manager-current-user')
           if (currentUser) {
@@ -173,7 +173,7 @@ export const useAuthStore = create<AuthStore>()(
                 id: user.id,
                 email: user.email,
                 name: user.name,
-                createdAt: user.createdAt
+                created_at: user.created_at
               },
               isAuthenticated: true,
             })
@@ -182,6 +182,12 @@ export const useAuthStore = create<AuthStore>()(
           console.error('Error initializing auth:', error)
           localStorage.removeItem('schedule-manager-current-user')
         }
+      },
+
+      refreshUser: async () => {
+        // Placeholder for refreshing user data from API
+        // This would typically fetch updated user data from the server
+        console.log('Refresh user not implemented yet')
       },
     }),
     {
