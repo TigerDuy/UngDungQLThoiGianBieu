@@ -35,7 +35,7 @@
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/yourusername/schedule-manager.git
+git clone https://github.com/TigerDuy/UngDungQLThoiGianBieu.git
 cd schedule-manager
 
 # 2. Cài đặt dependencies
