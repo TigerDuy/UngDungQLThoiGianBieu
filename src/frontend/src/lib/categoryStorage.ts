@@ -1,12 +1,5 @@
 // Category storage utilities for localStorage management
-
-export interface Category {
-  id: string
-  name: string
-  color: string
-  description?: string
-  isDefault?: boolean
-}
+import { Category } from '@/types'
 
 const STORAGE_KEY_PREFIX = 'schedule-manager-categories'
 
@@ -32,7 +25,16 @@ const getCurrentUserId = (): string => {
 
 // Default category for new users (minimal setup)
 const DEFAULT_CATEGORIES: Category[] = [
-  { id: '1', name: 'Chung', color: '#3b82f6', description: 'Danh mục mặc định', isDefault: true }
+  {
+    id: '1',
+    name: 'Chung',
+    color: '#3b82f6',
+    description: 'Danh mục mặc định',
+    isDefault: true,
+    userId: 'default-user',
+    createdAt: new Date(),
+    updatedAt: new Date()
+  }
 ]
 
 export const CategoryStorage = {

@@ -2,9 +2,11 @@
 
 import React, { useState } from 'react'
 import EventFormModal from '@/components/events/EventFormModal'
-import { EventStorage, type Event, useEventStorageListener } from '@/lib/eventStorage'
-import { CategoryStorage, type Category, useCategoryStorageListener } from '@/lib/categoryStorage'
+import { EventStorage, useEventStorageListener } from '@/lib/eventStorage'
+import { CategoryStorage, useCategoryStorageListener } from '@/lib/categoryStorage'
 import { NotificationStorage } from '@/lib/notificationStorage'
+import { apiClient } from '@/lib/api'
+import { Event, Category } from '@/types'
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -19,9 +21,34 @@ export default function CalendarPage() {
 
   // Load categories on component mount
   React.useEffect(() => {
-    const loadedCategories = CategoryStorage.loadCategories()
-    setCategories(loadedCategories)
-    console.log('Calendar - Loaded categories:', loadedCategories)
+    const loadCategories = async () => {
+      try {
+        // Try API first
+        console.log('Calendar - Attempting to load categories from API...')
+        const response = await apiClient.getCategories()
+        console.log('Calendar - API response:', response)
+        const apiCategories = response.categories.map((cat: any) => ({
+          ...cat,
+          categoryId: cat.id,
+          userId: cat.user_id,
+          isDefault: cat.is_default,
+          createdAt: new Date(cat.created_at),
+          updatedAt: new Date(cat.updated_at)
+        }))
+
+        setCategories(apiCategories)
+        console.log('Calendar - Loaded categories from API:', apiCategories)
+      } catch (error) {
+        console.error('API failed, using localStorage fallback:', error)
+
+        // Fallback to localStorage
+        const loadedCategories = CategoryStorage.loadCategories()
+        setCategories(loadedCategories)
+        console.log('Calendar - Loaded categories from localStorage:', loadedCategories)
+      }
+    }
+
+    loadCategories()
   }, [])
 
   // Listen for category storage changes
@@ -47,17 +74,56 @@ export default function CalendarPage() {
   })
 
   // Event handlers
-  const handleAddEvent = (eventData: Omit<Event, 'id'>) => {
-    console.log('Calendar - Adding new event:', eventData)
+  const handleAddEvent = async (eventData: Omit<Event, 'id'>) => {
+    try {
+      console.log('Calendar - Adding new event:', eventData)
 
-    const newEvent = EventStorage.addEvent(eventData)
-    const updatedEvents = EventStorage.loadEvents()
-    setEvents(updatedEvents)
+      // Try API first
+      const response = await apiClient.createEvent({
+        title: eventData.title,
+        description: eventData.description,
+        start_date: eventData.startDate,
+        end_date: eventData.endDate,
+        all_day: eventData.allDay,
+        category_id: eventData.categoryId,
+        location: eventData.location,
+        reminder: eventData.reminder,
+        repeat: eventData.recurrence ? {
+          type: eventData.recurrence.type as 'daily' | 'weekly' | 'monthly',
+          end_date: eventData.recurrence.endDate || eventData.endDate,
+          dates: [] // Will be calculated by backend
+        } : undefined
+      })
 
-    // Generate notifications for the new event
-    NotificationStorage.generateEventNotifications(updatedEvents)
+      // Add to local state
+      const newEvent = {
+        ...response.event,
+        startDate: new Date(response.event.start_date),
+        endDate: new Date(response.event.end_date),
+        categoryId: response.event.category_id,
+        userId: response.event.user_id,
+        recurrence: response.event.repeat
+      }
 
-    alert('Sự kiện đã được tạo thành công!')
+      setEvents(prev => [...prev, newEvent])
+
+      // Generate notifications for the new event
+      NotificationStorage.generateEventNotifications([...events, newEvent])
+
+      alert('Sự kiện đã được tạo thành công!')
+    } catch (error) {
+      console.error('API failed, using localStorage fallback:', error)
+
+      // Fallback to localStorage
+      const newEvent = EventStorage.addEvent(eventData)
+      const updatedEvents = EventStorage.loadEvents()
+      setEvents(updatedEvents)
+
+      // Generate notifications for the new event
+      NotificationStorage.generateEventNotifications(updatedEvents)
+
+      alert('Sự kiện đã được tạo thành công (offline)!')
+    }
   }
 
   const handleEditEvent = (eventData: Omit<Event, 'id'>) => {
@@ -127,11 +193,11 @@ export default function CalendarPage() {
   const getEventsForDate = (date: Date) => {
     return events.filter(event => {
       // Check if event occurs on this date (including repeated events)
-      if (event.repeat && event.repeat.dates) {
-        return event.repeat.dates.some(repeatDate => {
-          const rDate = new Date(repeatDate)
-          return rDate.toDateString() === date.toDateString()
-        })
+      if (event.recurrence) {
+        // For now, just check the main event date
+        // TODO: Implement proper recurrence date calculation
+        const eventDate = new Date(event.startDate)
+        return eventDate.toDateString() === date.toDateString()
       } else {
         const eventDate = new Date(event.startDate)
         return eventDate.toDateString() === date.toDateString()

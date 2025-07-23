@@ -301,26 +301,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             của chúng tôi.
           </div>
 
-          {/* Error message */}
-          {error && (
-            <div style={{
-              padding: '0.75rem',
-              backgroundColor: '#fef2f2',
-              border: '1px solid #fecaca',
-              borderRadius: '8px',
-              marginBottom: '1rem'
-            }}>
-              <p style={{
-                color: '#dc2626',
-                fontSize: '0.875rem',
-                margin: 0,
-                textAlign: 'center'
-              }}>
-                {error}
-              </p>
-            </div>
-          )}
-
           {/* Submit button */}
           <button
             type="submit"

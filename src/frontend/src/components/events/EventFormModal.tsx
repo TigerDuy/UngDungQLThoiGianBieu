@@ -1,32 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-
-interface Event {
-  id: string
-  title: string
-  description?: string
-  startDate: Date
-  endDate: Date
-  allDay: boolean
-  categoryId: string
-  location?: string
-  reminder?: {
-    enabled: boolean
-    minutes: number
-  }
-  repeat?: {
-    type: 'daily' | 'weekly' | 'monthly'
-    endDate: Date
-    dates: Date[]
-  }
-}
-
-interface Category {
-  id: string
-  name: string
-  color: string
-}
+import { Event, Category } from '@/types'
 
 interface EventFormProps {
   event?: Event | null
@@ -55,7 +30,7 @@ export default function EventFormModal({
              selectedDate ? new Date(selectedDate.getTime() - selectedDate.getTimezoneOffset() * 60000 + 3600000).toISOString().slice(0, 16) :
              new Date(Date.now() + 3600000).toISOString().slice(0, 16),
     allDay: event?.allDay || false,
-    categoryId: event?.categoryId || (categories[0]?.id || ''),
+    categoryId: event?.categoryId || (categories.length > 0 ? categories[0].id : ''),
     location: event?.location || '',
     reminderEnabled: event?.reminder?.enabled || false,
     reminderMinutes: event?.reminder?.minutes || 15,
@@ -68,6 +43,19 @@ export default function EventFormModal({
     repeatEndTime: '10:00',
     repeatDays: [] as string[] // For weekly repeat (not implemented yet)
   })
+
+  // Update categoryId when categories are loaded
+  React.useEffect(() => {
+    if (categories.length > 0 && !formData.categoryId && !event) {
+      setFormData(prev => ({
+        ...prev,
+        categoryId: categories[0].id
+      }))
+    }
+  }, [categories, formData.categoryId, event])
+
+  // Validation for category
+  const hasValidCategory = categories.length > 0 && formData.categoryId
 
   const reminderOptions = [
     { value: 0, label: 'Khi sự kiện bắt đầu' },
@@ -83,6 +71,11 @@ export default function EventFormModal({
 
     if (!formData.title.trim()) {
       alert('Vui lòng nhập tiêu đề sự kiện')
+      return
+    }
+
+    if (!hasValidCategory) {
+      alert('Vui lòng tạo ít nhất một danh mục trước khi tạo sự kiện')
       return
     }
 
@@ -143,16 +136,19 @@ export default function EventFormModal({
       endDate,
       allDay: formData.allDay,
       categoryId: formData.categoryId,
+      userId: event?.userId || 'current-user', // TODO: Get from auth context
       location: formData.location.trim() || undefined,
       reminder: formData.reminderEnabled ? {
         enabled: true,
         minutes: formData.reminderMinutes
       } : undefined,
-      repeat: formData.repeatEnabled ? {
+      recurrence: formData.repeatEnabled ? {
         type: formData.repeatType as 'daily' | 'weekly' | 'monthly',
-        endDate: new Date(formData.repeatEndDate),
-        dates: generateRepeatDates(formData)
-      } : undefined
+        interval: 1,
+        endDate: new Date(formData.repeatEndDate)
+      } : undefined,
+      createdAt: event?.createdAt || new Date(),
+      updatedAt: new Date()
     }
 
     onSubmit(eventData)
@@ -312,12 +308,25 @@ export default function EventFormModal({
                 fontSize: '0.875rem'
               }}
             >
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
+              {categories.length > 0 ? (
+                categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))
+              ) : (
+                <option value="">Chưa có danh mục nào</option>
+              )}
             </select>
+            {categories.length === 0 && (
+              <p style={{
+                fontSize: '0.75rem',
+                color: '#ef4444',
+                marginTop: '0.25rem'
+              }}>
+                Vui lòng tạo danh mục trước khi tạo sự kiện
+              </p>
+            )}
           </div>
 
           {/* All Day Toggle - Only for non-repeat events */}

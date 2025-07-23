@@ -37,32 +37,50 @@ export const useAuthStore = create<AuthStore>()(
         try {
           set({ isLoading: true, error: null })
 
-          // Simple localStorage-based authentication
-          const users = JSON.parse(localStorage.getItem('schedule-manager-users') || '[]')
-          const user = users.find((u: any) => u.email === email)
+          try {
+            // Try API authentication first
+            const response = await apiClient.login(email, password)
 
-          if (!user) {
-            throw new Error('Email không tồn tại')
+            // Save current user to localStorage for offline access
+            localStorage.setItem('schedule-manager-current-user', JSON.stringify(response.user))
+
+            set({
+              user: {
+                id: response.user.id,
+                email: response.user.email,
+                name: response.user.name,
+                created_at: response.user.created_at
+              },
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+            })
+            return
+          } catch (apiError) {
+            console.warn('API login failed, trying localStorage fallback:', apiError)
+
+            // Fallback to localStorage authentication
+            const users = JSON.parse(localStorage.getItem('schedule-manager-users') || '[]')
+            const user = users.find((u: any) => u.email === email && u.password === password)
+
+            if (!user) {
+              throw new Error('Email hoặc mật khẩu không đúng')
+            }
+
+            localStorage.setItem('schedule-manager-current-user', JSON.stringify(user))
+
+            set({
+              user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                created_at: user.created_at
+              },
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+            })
           }
-
-          if (user.password !== password) {
-            throw new Error('Mật khẩu không đúng')
-          }
-
-          // Set current user
-          localStorage.setItem('schedule-manager-current-user', JSON.stringify(user))
-
-          set({
-            user: {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              created_at: user.created_at
-            },
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-          })
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Đăng nhập thất bại',
@@ -76,53 +94,62 @@ export const useAuthStore = create<AuthStore>()(
         try {
           set({ isLoading: true, error: null })
 
-          // Validate input
-          if (!name.trim()) {
-            throw new Error('Tên không được để trống')
-          }
-          if (!email.trim()) {
-            throw new Error('Email không được để trống')
-          }
-          if (!email.includes('@')) {
-            throw new Error('Email không hợp lệ')
-          }
-          if (password.length < 6) {
-            throw new Error('Mật khẩu phải có ít nhất 6 ký tự')
-          }
+          try {
+            // Try API registration first
+            const response = await apiClient.register(name, email, password)
 
-          // Simple localStorage-based registration
-          const users = JSON.parse(localStorage.getItem('schedule-manager-users') || '[]')
+            // Save current user to localStorage for offline access
+            localStorage.setItem('schedule-manager-current-user', JSON.stringify(response.user))
 
-          // Check if email already exists
-          if (users.find((u: any) => u.email === email)) {
-            throw new Error('Email đã được sử dụng')
+            set({
+              user: {
+                id: response.user.id,
+                email: response.user.email,
+                name: response.user.name,
+                created_at: response.user.created_at
+              },
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+            })
+            return
+          } catch (apiError) {
+            console.warn('API register failed, trying localStorage fallback:', apiError)
+
+            // Fallback to localStorage registration
+            const users = JSON.parse(localStorage.getItem('schedule-manager-users') || '[]')
+
+            // Check if email already exists
+            if (users.find((u: any) => u.email === email)) {
+              throw new Error('Email đã được sử dụng')
+            }
+
+            // Create new user
+            const newUser = {
+              id: Date.now().toString(),
+              email: email.trim(),
+              name: name.trim(),
+              password: password,
+              created_at: new Date().toISOString()
+            }
+
+            // Save to localStorage
+            users.push(newUser)
+            localStorage.setItem('schedule-manager-users', JSON.stringify(users))
+            localStorage.setItem('schedule-manager-current-user', JSON.stringify(newUser))
+
+            set({
+              user: {
+                id: newUser.id,
+                email: newUser.email,
+                name: newUser.name,
+                created_at: newUser.created_at
+              },
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+            })
           }
-
-          // Create new user
-          const newUser = {
-            id: Date.now().toString(),
-            email: email.trim(),
-            name: name.trim(),
-            password: password,
-            created_at: new Date().toISOString()
-          }
-
-          // Save to localStorage
-          users.push(newUser)
-          localStorage.setItem('schedule-manager-users', JSON.stringify(users))
-          localStorage.setItem('schedule-manager-current-user', JSON.stringify(newUser))
-
-          set({
-            user: {
-              id: newUser.id,
-              email: newUser.email,
-              name: newUser.name,
-              created_at: newUser.created_at
-            },
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-          })
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Đăng ký thất bại',
@@ -133,6 +160,9 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: () => {
+        // Clear API token
+        apiClient.logout()
+
         set({
           user: null,
           isAuthenticated: false,
@@ -184,10 +214,18 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
+      // Refresh user data from API
       refreshUser: async () => {
-        // Placeholder for refreshing user data from API
-        // This would typically fetch updated user data from the server
-        console.log('Refresh user not implemented yet')
+        try {
+          const { user } = get()
+          if (user) {
+            // TODO: Implement API call to refresh user data
+            // const refreshedUser = await apiClient.getUser(user.id)
+            // set({ user: refreshedUser })
+          }
+        } catch (error) {
+          console.error('Error refreshing user:', error)
+        }
       },
     }),
     {

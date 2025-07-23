@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react'
 import EventFormModal from '@/components/events/EventFormModal'
-import { EventStorage, type Event, useEventStorageListener } from '@/lib/eventStorage'
-import { CategoryStorage, type Category, useCategoryStorageListener } from '@/lib/categoryStorage'
+import { EventStorage, useEventStorageListener } from '@/lib/eventStorage'
+import { CategoryStorage, useCategoryStorageListener } from '@/lib/categoryStorage'
+import { Event, Category } from '@/types'
+import { apiClient } from '@/lib/api'
 
 export default function EventsPage() {
   const [showEventForm, setShowEventForm] = useState(false)
@@ -16,9 +18,32 @@ export default function EventsPage() {
 
   // Load categories on component mount
   React.useEffect(() => {
-    const loadedCategories = CategoryStorage.loadCategories()
-    setCategories(loadedCategories)
-    console.log('Events page - Loaded categories:', loadedCategories)
+    const loadCategories = async () => {
+      try {
+        // Try API first
+        const response = await apiClient.getCategories()
+        const apiCategories = response.categories.map((cat: any) => ({
+          ...cat,
+          categoryId: cat.id,
+          userId: cat.user_id,
+          isDefault: cat.is_default,
+          createdAt: new Date(cat.created_at),
+          updatedAt: new Date(cat.updated_at)
+        }))
+
+        setCategories(apiCategories)
+        console.log('Events page - Loaded categories from API:', apiCategories)
+      } catch (error) {
+        console.error('API failed, using localStorage fallback:', error)
+
+        // Fallback to localStorage
+        const loadedCategories = CategoryStorage.loadCategories()
+        setCategories(loadedCategories)
+        console.log('Events page - Loaded categories from localStorage:', loadedCategories)
+      }
+    }
+
+    loadCategories()
   }, [])
 
   // Listen for category storage changes
@@ -32,9 +57,33 @@ export default function EventsPage() {
 
   // Load events on component mount
   React.useEffect(() => {
-    const loadedEvents = EventStorage.loadEvents()
-    setEvents(loadedEvents)
-    console.log('Events page - Loaded events:', loadedEvents)
+    const loadEvents = async () => {
+      try {
+        // Try API first
+        const response = await apiClient.getEvents()
+
+        const apiEvents = response.events.map((event: any) => ({
+          ...event,
+          startDate: new Date(event.start_date),
+          endDate: new Date(event.end_date),
+          categoryId: event.category_id,
+          userId: event.user_id,
+          recurrence: event.repeat
+        }))
+
+        setEvents(apiEvents)
+        console.log('Events page - Loaded events from API:', apiEvents)
+      } catch (error) {
+        console.error('API failed, using localStorage fallback:', error)
+
+        // Fallback to localStorage
+        const loadedEvents = EventStorage.loadEvents()
+        setEvents(loadedEvents)
+        console.log('Events page - Loaded events from localStorage:', loadedEvents)
+      }
+    }
+
+    loadEvents()
   }, [])
 
   // Listen for storage changes
@@ -44,14 +93,48 @@ export default function EventsPage() {
   })
 
   // Event handlers
-  const handleAddEvent = (eventData: Omit<Event, 'id'>) => {
-    console.log('Events page - Adding new event:', eventData)
+  const handleAddEvent = async (eventData: Omit<Event, 'id'>) => {
+    try {
+      console.log('Events page - Adding new event:', eventData)
 
-    const newEvent = EventStorage.addEvent(eventData)
-    const updatedEvents = EventStorage.loadEvents()
-    setEvents(updatedEvents)
+      // Try API first
+      const response = await apiClient.createEvent({
+        title: eventData.title,
+        description: eventData.description,
+        start_date: eventData.startDate,
+        end_date: eventData.endDate,
+        all_day: eventData.allDay,
+        category_id: eventData.categoryId,
+        location: eventData.location,
+        reminder: eventData.reminder,
+        repeat: eventData.recurrence ? {
+          type: eventData.recurrence.type as 'daily' | 'weekly' | 'monthly',
+          end_date: eventData.recurrence.endDate || eventData.endDate,
+          dates: [] // Will be calculated by backend
+        } : undefined
+      })
 
-    alert('Sự kiện đã được tạo thành công!')
+      // Add to local state
+      const newEvent = {
+        ...response.event,
+        startDate: new Date(response.event.start_date),
+        endDate: new Date(response.event.end_date),
+        categoryId: response.event.category_id,
+        userId: response.event.user_id,
+        recurrence: response.event.repeat
+      }
+
+      setEvents(prev => [...prev, newEvent])
+      alert('Sự kiện đã được tạo thành công!')
+    } catch (error) {
+      console.error('API failed, using localStorage fallback:', error)
+
+      // Fallback to localStorage
+      const newEvent = EventStorage.addEvent(eventData)
+      const updatedEvents = EventStorage.loadEvents()
+      setEvents(updatedEvents)
+      alert('Sự kiện đã được tạo thành công (offline)!')
+    }
   }
 
   const handleEditEvent = (eventData: Omit<Event, 'id'>) => {
@@ -396,15 +479,15 @@ export default function EventsPage() {
                             </div>
                           )}
 
-                          {event.repeat && (
+                          {event.recurrence && (
                             <div>
                               <strong>Lặp lại:</strong><br />
-                              🔄 {event.repeat.type === 'daily' ? 'Hằng ngày' :
-                                   event.repeat.type === 'weekly' ? 'Hằng tuần' :
-                                   event.repeat.type === 'monthly' ? 'Hằng tháng' : 'Tùy chỉnh'}
+                              🔄 {event.recurrence.type === 'daily' ? 'Hằng ngày' :
+                                   event.recurrence.type === 'weekly' ? 'Hằng tuần' :
+                                   event.recurrence.type === 'monthly' ? 'Hằng tháng' : 'Tùy chỉnh'}
                               <br />
                               <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                                {event.repeat.dates?.length || 0} ngày, đến {new Date(event.repeat.endDate).toLocaleDateString('vi-VN')}
+                                Đến {event.recurrence.endDate ? new Date(event.recurrence.endDate).toLocaleDateString('vi-VN') : 'Không giới hạn'}
                               </span>
                             </div>
                           )}
