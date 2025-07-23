@@ -92,32 +92,6 @@ hoặc docker compose up --build
 3. Xác nhận email (nếu bật)  
 4. Đăng nhập và bắt đầu sử dụng  
 
-### Tạo sự kiện mới qua API
-
-```javascript
-const newEvent = {
-  title: "Họp team",
-  description: "Họp review sprint",
-  startDate: "2024-01-15T09:00:00Z",
-  endDate: "2024-01-15T10:00:00Z",
-  categoryId: 1,
-  location: "Phòng họp A"
-};
-
-fetch('/api/events', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(newEvent)
-});
-```
-
-### Cài đặt thông báo
-
-1. Vào **Settings > Notifications**  
-2. Bật/tắt các thông báo  
-3. Cài đặt thời gian nhắc nhở mặc định  
-4. Cấu hình "giờ yên tĩnh"
-
 ---
 
 ## 🛠️ Phụ thuộc chính
@@ -158,7 +132,6 @@ fetch('/api/events', {
 ## 🤝 Đóng góp
 
 Chúng tôi hoan nghênh mọi đóng góp!  
-Vui lòng đọc [CONTRIBUTING.md](CONTRIBUTING.md) để biết thêm chi tiết.
 
 ### Quy trình:
 
